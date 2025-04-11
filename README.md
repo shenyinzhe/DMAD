@@ -1,5 +1,5 @@
 <div align="center">
-    <h2>Divide and Merge<br/>Motion and Semantic Learning in End-to-End Autonomous 
+    <h2>Divide and Merge<br/>Motion and Semantic Learning in End-to-End Autonomous Driving
     <br/>
     <br/>
     <a href="https://arxiv.org/abs/2502.07631"><img src='https://img.shields.io/badge/arXiv-Page-aff'></a>
