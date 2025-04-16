@@ -41,7 +41,7 @@ https://github.com/user-attachments/assets/5d7c65ab-ca9e-47ea-8f66-f1b4998f417d
 
 | Model | Avg | Stationary | Frontal | Side |
 | :---: | :---: | :---: | :---: | :---: |
-| UniAD | 2.111 | 3.501 | 1.166 | 1.667 |
+| UniAD | 2.11 | 3.50 | 1.17 | 1.67 |
 | DMAD | 2.65 | 4.40 | 1.47 | 2.07 |
 
 #### Collision rate (%)
