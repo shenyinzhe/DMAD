@@ -20,8 +20,8 @@ mkdir data
 ```shell
 cd DMAD/data
 mkdir infos && cd infos
-wget https://github.com/shenyinzhe/DMAD/releases/download/v1.0/nuscenes_mini_infos_temporal_train.pkl  # train_infos
-wget https://github.com/shenyinzhe/DMAD/releases/download/v1.0/nuscenes_mini_infos_temporal_val.pkl  # val_infos
+wget https://github.com/shenyinzhe/DMAD/releases/download/v1.0/nuscenes_infos_temporal_train.pkl  # train_infos
+wget https://github.com/shenyinzhe/DMAD/releases/download/v1.0/nuscenes_infos_temporal_val.pkl  # val_infos
 
 # mini set:
 wget https://github.com/shenyinzhe/DMAD/releases/download/v1.0/nuscenes_mini_infos_temporal_train.pkl
