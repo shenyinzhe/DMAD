@@ -68,4 +68,7 @@ RUN ln /usr/bin/python3 /usr/bin/python
 RUN pip install uvicorn fastapi
 RUN pip install numpy==1.21.2
 
+# FORCE replace opencv-python with headless version to avoid glibc version issues
+RUN pip uninstall -y opencv-python opencv-python-headless && pip install opencv-python-headless
+
 
