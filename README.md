@@ -2,6 +2,7 @@
     <h2>Divide and Merge<br/>Motion and Semantic Learning in End-to-End Autonomous Driving
     <br/>
     <br/>
+    <a href="https://openreview.net/forum?id=RvtCNm1Rdv"><img src='https://img.shields.io/badge/TMLR-2025-blue'></a>
     <a href="https://arxiv.org/abs/2502.07631"><img src='https://img.shields.io/badge/arXiv-Page-aff'></a>
     </h2>
 </div>
@@ -19,6 +20,7 @@ https://github.com/user-attachments/assets/d02ec267-4f5b-4f77-a3ff-5e38880d67c9
 
 ## News <a name="news"></a>
 - **`2026/11/23`** Zero-shot open-loop inference on [KITScenes Multimodal](https://kitscenes.com/benchmarks/multimodal-e2e-driving/) ([guide](docs/KITSCENES.md))
+- **`2025/11/16`** DMAD is published in [Transactions on Machine Learning Research (TMLR)](https://openreview.net/forum?id=RvtCNm1Rdv).
 - **`2025/04/04`** Initial code release
 - **`2025/02/11`** DMAD [paper](https://arxiv.org/abs/2502.07631) published on arXiv.
 
@@ -75,8 +77,10 @@ If you find this work useful, please consider citing:
 @article{shen2025divide,
   title={Divide and Merge: Motion and Semantic Learning in End-to-End Autonomous Driving},
   author={Shen, Yinzhe and Ta{\c{s}}, {\"O}mer {\c{S}}ahin and Wang, Kaiwen and Wagner, Royden and Stiller, Christoph},
-  journal={arXiv preprint arXiv:2502.07631},
-  year={2025}
+  journal={Transactions on Machine Learning Research},
+  issn={2835-8856},
+  year={2025},
+  url={https://openreview.net/forum?id=RvtCNm1Rdv}
 }
 ```
 ## Acknowledgement <a name="acknowledgement"></a>
