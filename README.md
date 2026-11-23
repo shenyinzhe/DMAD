@@ -15,6 +15,7 @@ https://github.com/user-attachments/assets/d02ec267-4f5b-4f77-a3ff-5e38880d67c9
 - [Prepare Dataset](docs/DATA_PREP.md)
 - [Train/Eval](docs/TRAIN_EVAL.md)
 - [Closed-loop Eval](docs/EVAL_NEURONCAP.md)
+- [KITScenes Multimodal Inference](docs/KITSCENES.md)
 
 ## News <a name="news"></a>
 - **`2025/04/04`** Initial code release

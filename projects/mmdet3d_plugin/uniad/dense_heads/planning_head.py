@@ -26,7 +26,7 @@ class PlanningHeadSingleMode(nn.Module):
                  use_col_optim=False,
                  col_optim_args=dict(
                     occ_filter_range=5.0,
-                    sigma=1.0, 
+                    sigma=1.0,
                     alpha_collision=5.0,
                  ),
                  with_adapter=False,
@@ -57,24 +57,24 @@ class PlanningHeadSingleMode(nn.Module):
         self.loss_planning = build_loss(loss_planning)
         self.planning_steps = planning_steps
         self.planning_eval = planning_eval
-        
+
         #### planning head
         fuser_dim = 3
         attn_module_layer = nn.TransformerDecoderLayer(embed_dims, 8, dim_feedforward=embed_dims*2, dropout=0.1, batch_first=False)
         self.attn_module = nn.TransformerDecoder(attn_module_layer, 3)
-        
+
         self.mlp_fuser = nn.Sequential(
                 nn.Linear(embed_dims*fuser_dim, embed_dims),
                 nn.LayerNorm(embed_dims),
                 nn.ReLU(inplace=True),
             )
-        
+
         self.pos_embed = nn.Embedding(1, embed_dims)
         self.loss_collision = []
         for cfg in loss_collision:
             self.loss_collision.append(build_loss(cfg))
         self.loss_collision = nn.ModuleList(self.loss_collision)
-        
+
         self.use_col_optim = use_col_optim
         self.occ_filter_range = col_optim_args['occ_filter_range']
         self.sigma = col_optim_args['sigma']
@@ -91,11 +91,11 @@ class PlanningHeadSingleMode(nn.Module):
             N_Blocks = 3
             bev_adapter = [copy.deepcopy(bev_adapter_block) for _ in range(N_Blocks)]
             self.bev_adapter = nn.Sequential(*bev_adapter)
-           
+
     def forward_train(self,
-                      bev_embed, 
-                      outs_motion={}, 
-                      sdc_planning=None, 
+                      bev_embed,
+                      outs_motion={},
+                      sdc_planning=None,
                       sdc_planning_mask=None,
                       command=None,
                       gt_future_boxes=None,
@@ -120,7 +120,7 @@ class PlanningHeadSingleMode(nn.Module):
         bev_pos = outs_motion['bev_pos']
 
         occ_mask = None
-        
+
         outs_planning = self(bev_embed, occ_mask, bev_pos, sdc_traj_query, sdc_track_query, command)
         loss_inputs = [sdc_planning, sdc_planning_mask, outs_planning, gt_future_boxes]
         losses = self.loss(*loss_inputs)
@@ -132,16 +132,16 @@ class PlanningHeadSingleMode(nn.Module):
         sdc_track_query = outs_motion['sdc_track_query']
         bev_pos = outs_motion['bev_pos']
         occ_mask = outs_occflow['seg_out']
-        
+
         outs_planning = self(bev_embed, occ_mask, bev_pos, sdc_traj_query, sdc_track_query, command)
         return outs_planning
 
-    def forward(self, 
-                bev_embed, 
-                occ_mask, 
-                bev_pos, 
-                sdc_traj_query, 
-                sdc_track_query, 
+    def forward(self,
+                bev_embed,
+                occ_mask,
+                bev_pos,
+                sdc_traj_query,
+                sdc_track_query,
                 command):
         """
         Forward pass for PlanningHeadSingleMode.
@@ -161,32 +161,35 @@ class PlanningHeadSingleMode(nn.Module):
         sdc_traj_query = sdc_traj_query[-1]
         P = sdc_traj_query.shape[1]
         sdc_track_query = sdc_track_query[:, None].expand(-1,P,-1)
-        
-        
+
+        # Robustly handle command tensor shape (e.g. if (B, Q) due to queue_length)
+        if command.dim() > 1:
+            command = command[:, 0]  # Take the first one (they should be identical in a seq)
+
         navi_embed = self.navi_embed.weight[command]
         navi_embed = navi_embed[None].expand(-1,P,-1)
         plan_query = torch.cat([sdc_traj_query, sdc_track_query, navi_embed], dim=-1)
 
         plan_query = self.mlp_fuser(plan_query).max(1, keepdim=True)[0]   # expand, then fuse  # [1, 6, 768] -> [1, 1, 256]
         plan_query = rearrange(plan_query, 'b p c -> p b c')
-        
+
         bev_pos = rearrange(bev_pos, 'b c h w -> (h w) b c')
         bev_feat = bev_embed +  bev_pos
-        
+
         ##### Plugin adapter #####
         if self.with_adapter:
             bev_feat = rearrange(bev_feat, '(h w) b c -> b c h w', h=self.bev_h, w=self.bev_w)
             bev_feat = bev_feat + self.bev_adapter(bev_feat)  # residual connection
             bev_feat = rearrange(bev_feat, 'b c h w -> (h w) b c')
         ##########################
-      
+
         pos_embed = self.pos_embed.weight
         plan_query = plan_query + pos_embed[None]  # [1, 1, 256]
-        
+
         # plan_query: [1, 1, 256]
         # bev_feat: [40000, 1, 256]
         plan_query = self.attn_module(plan_query, bev_feat)   # [1, 1, 256]
-        
+
         sdc_traj_all = self.reg_branch(plan_query).view((-1, self.planning_steps, 2))
         sdc_traj_all[...,:2] = torch.cumsum(sdc_traj_all[...,:2], dim=1)
         sdc_traj_all[0] = bivariate_gaussian_activation(sdc_traj_all[0])
@@ -194,7 +197,7 @@ class PlanningHeadSingleMode(nn.Module):
             # post process, only used when testing
             assert occ_mask is not None
             sdc_traj_all = self.collision_optimization(sdc_traj_all, occ_mask)
-        
+
         return dict(
             sdc_traj=sdc_traj_all,
             sdc_traj_all=sdc_traj_all,
@@ -206,13 +209,13 @@ class PlanningHeadSingleMode(nn.Module):
 
         Args:
             sdc_traj_all (torch.Tensor): SDC trajectory tensor.
-            occ_mask (torch.Tensor): Occupancy flow instance mask. 
+            occ_mask (torch.Tensor): Occupancy flow instance mask.
         Returns:
             torch.Tensor: Optimized SDC trajectory tensor.
         """
         pos_xy_t = []
         valid_occupancy_num = 0
-        
+
         if occ_mask.shape[2] == 1:
             occ_mask = occ_mask.squeeze(2)
         occ_horizon = occ_mask.shape[1]
@@ -231,19 +234,19 @@ class PlanningHeadSingleMode(nn.Module):
             valid_occupancy_num += torch.sum(keep_index>0)
         if valid_occupancy_num == 0:
             return sdc_traj_all
-        
+
         col_optimizer = CollisionNonlinearOptimizer(self.planning_steps, 0.5, self.sigma, self.alpha_collision, pos_xy_t)
         col_optimizer.set_reference_trajectory(sdc_traj_all[0].cpu().detach().numpy())
         sol = col_optimizer.solve()
         sdc_traj_optim = np.stack([sol.value(col_optimizer.position_x), sol.value(col_optimizer.position_y)], axis=-1)
         return torch.tensor(sdc_traj_optim[None], device=sdc_traj_all.device, dtype=sdc_traj_all.dtype)
-    
+
     def loss(self, sdc_planning, sdc_planning_mask, outs_planning, future_gt_bbox=None):
         sdc_traj_all = outs_planning['sdc_traj_all'] # b, p, t, 5
         loss_dict = dict()
         for i in range(len(self.loss_collision)):
             loss_collision = self.loss_collision[i](sdc_traj_all, sdc_planning[0, :, :self.planning_steps, :3], torch.any(sdc_planning_mask[0, :, :self.planning_steps], dim=-1), future_gt_bbox[0][1:self.planning_steps+1])
-            loss_dict[f'loss_collision_{i}'] = loss_collision          
+            loss_dict[f'loss_collision_{i}'] = loss_collision
         loss_ade = self.loss_planning(sdc_traj_all, sdc_planning[0, :, :self.planning_steps, :2], torch.any(sdc_planning_mask[0, :, :self.planning_steps], dim=-1))
         loss_dict.update(dict(loss_ade=loss_ade))
         return loss_dict

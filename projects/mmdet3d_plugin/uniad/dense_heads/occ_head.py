@@ -21,7 +21,7 @@ def _get_clones(module, N):
 
 @HEADS.register_module()
 class OccHead(BaseModule):
-    def __init__(self, 
+    def __init__(self,
                  # General
                  receptive_field=3,
                  n_future=4,
@@ -75,7 +75,7 @@ class OccHead(BaseModule):
             'zbound': [-10.0, 10.0, 20.0],
         }
         self.bev_sampler =  BevFeatureSlicer(bevformer_bev_conf, grid_conf)
-        
+
         self.bev_size = bev_size
         self.bev_proj_dim = bev_proj_dim
 
@@ -100,7 +100,7 @@ class OccHead(BaseModule):
 
         # - transformer
         self.attn_mask_thresh = attn_mask_thresh
-        
+
         self.num_trans_layers = transformer_decoder.num_layers
         assert self.num_trans_layers % self.n_future_blocks == 0
 
@@ -114,11 +114,11 @@ class OccHead(BaseModule):
 
         temporal_mlp = MLP(query_dim, query_dim, bev_proj_dim, num_layers=temporal_mlp_layer)
         self.temporal_mlps = _get_clones(temporal_mlp, self.n_future_blocks)
-            
+
         # - downscale-convs
         downscale_conv = Bottleneck(in_channels=bev_proj_dim, downsample=True)
         self.downscale_convs = _get_clones(downscale_conv, self.n_future_blocks)
-        
+
         # - upsampleAdds
         upsample_add = UpsamplingAdd(in_channels=bev_proj_dim, out_channels=bev_proj_dim)
         self.upsample_adds = _get_clones(upsample_add, self.n_future_blocks)
@@ -148,7 +148,7 @@ class OccHead(BaseModule):
             query_dim, query_dim, bev_proj_dim, num_layers=query_mlp_layers
         )
         self.temporal_mlp_for_mask = copy.deepcopy(self.query_to_occ_feat)
-        
+
         # Loss
         # For matching
         self.sample_ignore_mode = sample_ignore_mode
@@ -174,14 +174,14 @@ class OccHead(BaseModule):
         # state: b, c, h, w
         # ins_query: b, q, c
         ins_embed = self.temporal_mlp_for_mask(
-            ins_query 
+            ins_query
         )
         mask_pred = torch.einsum("bqc,bchw->bqhw", ins_embed, state)
         attn_mask = mask_pred.sigmoid() < self.attn_mask_thresh
         attn_mask = rearrange(attn_mask, 'b q h w -> b (h w) q').unsqueeze(1).repeat(
             1, self.num_heads, 1, 1).flatten(0, 1)
         attn_mask = attn_mask.detach()
-        
+
         # if a mask is all True(all background), then set it all False.
         attn_mask[torch.where(
             attn_mask.sum(-1) == attn_mask.shape[-1])] = False
@@ -211,7 +211,7 @@ class OccHead(BaseModule):
         temporal_embed_for_mask_attn = []
         n_trans_layer_each_block = self.num_trans_layers // self.n_future_blocks
         assert n_trans_layer_each_block >= 1
-        
+
         for i in range(self.n_future_blocks):
             # Downscale
             cur_state = self.downscale_convs[i](last_state)  # /4 -> /8
@@ -221,9 +221,9 @@ class OccHead(BaseModule):
             cur_ins_query = self.temporal_mlps[i](last_ins_query)  # [b, q, d]
             temporal_query.append(cur_ins_query)
 
-            # Generate attn mask 
+            # Generate attn mask
             attn_mask, mask_pred, cur_ins_emb_for_mask_attn = self.get_attn_mask(cur_state, cur_ins_query)
-            attn_masks = [None, attn_mask] 
+            attn_masks = [None, attn_mask]
 
             mask_preds.append(mask_pred)  # /1
             temporal_embed_for_mask_attn.append(cur_ins_emb_for_mask_attn)
@@ -238,7 +238,7 @@ class OccHead(BaseModule):
                     query=cur_state,  # [h'*w', b, c]
                     key=cur_ins_query,  # [nq, b, c]
                     value=cur_ins_query,  # [nq, b, c]
-                    query_pos=None,  
+                    query_pos=None,
                     key_pos=None,
                     attn_masks=attn_masks,
                     query_key_padding_mask=None,
@@ -246,7 +246,7 @@ class OccHead(BaseModule):
                 )  # out size: [h'*w', b, c]
 
             cur_state = rearrange(cur_state, '(h w) b c -> b c h w', h=self.bev_size[0]//8)
-            
+
             # Upscale to /4
             cur_state = self.upsample_adds[i](cur_state, last_state)
 
@@ -262,10 +262,10 @@ class OccHead(BaseModule):
         # Decode future states to larger resolution
         future_states = self.dense_decoder(future_states)
         ins_occ_query = self.query_to_occ_feat(ins_query)    # [b, t, q, query_out_dim]
-        
+
         # Generate final outputs
         ins_occ_logits = torch.einsum("btqc,btchw->bqthw", ins_occ_query, future_states)
-        
+
         return mask_preds, ins_occ_logits
 
     def merge_queries(self, outs_dict, detach_query_pos=True):
@@ -279,7 +279,7 @@ class OccHead(BaseModule):
         ins_query = ins_query[-1]
         ins_query = self.mode_fuser(ins_query).max(2)[0]
         ins_query = self.multi_query_fuser(torch.cat([ins_query, track_query, track_query_pos], dim=-1))
-        
+
         return ins_query
 
     # With matched queries [a small part of all queries] and matched_gt results
@@ -294,17 +294,17 @@ class OccHead(BaseModule):
                 ):
         # Generate warpped gt and related inputs
         gt_segmentation, gt_instance, gt_img_is_valid = self.get_occ_labels(gt_segmentation, gt_instance, gt_img_is_valid)
-        
+
         all_matched_gt_ids = outs_dict['all_matched_idxes']  # list of tensor, length bs
 
         ins_query = self.merge_queries(outs_dict, self.detach_query_pos)
 
         # Forward the occ-flow model
         mask_preds_batch, ins_seg_preds_batch = self(bev_feat, ins_query=ins_query)
-        
+
         # Get pred and gt
         ins_seg_targets_batch  = gt_instance # [1, 5, 200, 200] [b, t, h, w] # ins targets of a batch
-        
+
         # img_valid flag, for filtering out invalid samples in sequence when calculating loss
         img_is_valid = gt_img_is_valid  # [1, 7]
         assert img_is_valid.size(1) == self.receptive_field + self.n_future,  \
@@ -316,7 +316,7 @@ class OccHead(BaseModule):
         # only supervise when all 3 past frames are valid
         past_valid = past_valid_mask.all(dim=1)
         future_frame_mask[~past_valid] = False
-        
+
         # Calculate loss in the batch
         loss_dict = dict()
         loss_dice = ins_seg_preds_batch.new_zeros(1)[0].float()
@@ -331,13 +331,13 @@ class OccHead(BaseModule):
             cur_gt_inds   = gt_inds_list[ind][-1]
 
             cur_matched_gt = all_matched_gt_ids[ind]  # [n_gt]
-            
+
             # Re-order gt according to matched_gt_inds
             cur_gt_inds   = cur_gt_inds[cur_matched_gt]
-            
+
             # Deal matched_gt: -1, its actually background(unmatched)
             cur_gt_inds[cur_matched_gt == -1] = -1  # Bugfixed
-            cur_gt_inds[cur_matched_gt == -2] = -2  
+            cur_gt_inds[cur_matched_gt == -2] = -2
 
             frame_mask = future_frame_mask[ind]  # [t]
 
@@ -345,7 +345,7 @@ class OccHead(BaseModule):
             ins_seg_preds = ins_seg_preds_batch[ind]   # [q(n_gt for matched), t, h, w]
             ins_seg_targets = ins_seg_targets_batch[ind]  # [t, h, w]
             mask_preds = mask_preds_batch[ind]
-            
+
             # Assigned-gt
             ins_seg_targets_ordered = []
             for ins_id in cur_gt_inds:
@@ -362,23 +362,23 @@ class OccHead(BaseModule):
                     if ins_id.item() == self.ignore_index:
                         ins_id = torch.ones_like(ins_id) * SPECIAL_INDEX
                     ins_tgt = (ins_seg_targets == ins_id).long()  # [t, h, w], 0 or 1
-                
+
                 ins_seg_targets_ordered.append(ins_tgt)
-            
+
             ins_seg_targets_ordered = torch.stack(ins_seg_targets_ordered, dim=0)  # [n_gt, t, h, w]
-            
+
             # Sanity check
             t, h, w = ins_seg_preds.shape[-3:]
             assert t == 1+self.n_future, f"{ins_seg_preds.size()}"
             assert ins_seg_preds.size() == ins_seg_targets_ordered.size(),   \
                             f"{ins_seg_preds.size()}, {ins_seg_targets_ordered.size()}"
-            
-            num_total_pos = ins_seg_preds.size(0)  # Check this line 
+
+            num_total_pos = ins_seg_preds.size(0)  # Check this line
 
             # loss for a sample in batch
             num_total_pos = ins_seg_preds.new_tensor([num_total_pos])
             num_total_pos = torch.clamp(reduce_mean(num_total_pos), min=1).item()
-            
+
             cur_dice_loss = self.loss_dice(
                 ins_seg_preds, ins_seg_targets_ordered, avg_factor=num_total_pos, frame_mask=frame_mask)
 
@@ -447,7 +447,7 @@ class OccHead(BaseModule):
             # ins_pred
             pred_consistent_instance_seg =  \
                 predict_instance_segmentation_and_trajectories(seg_out, pred_ins_sigmoid)  # bg is 0, fg starts with 1, consecutive
-            
+
             out_dict['ins_seg_out'] = pred_consistent_instance_seg  # [1, 5, 200, 200]
 
         return out_dict
@@ -465,6 +465,18 @@ class OccHead(BaseModule):
         return ins_gt_new  # Consecutive
 
     def get_occ_labels(self, gt_segmentation, gt_instance, gt_img_is_valid):
+        if gt_segmentation is None:
+            device = next(self.parameters()).device
+            h, w = self.bev_size
+            b = 1 # Test batch size
+            t = self.n_future + 1
+            rf = self.receptive_field
+
+            gt_segmentation = torch.zeros((b, t, h, w), device=device).long().unsqueeze(2)
+            gt_instance = torch.zeros((b, t, h, w), device=device).long()
+            gt_img_is_valid = torch.ones((b, t+rf, h, w), device=device).long()
+            return gt_segmentation, gt_instance, gt_img_is_valid
+
         if not self.training:
             gt_segmentation = gt_segmentation[0]
             gt_instance = gt_instance[0]

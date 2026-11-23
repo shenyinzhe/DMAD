@@ -280,6 +280,15 @@ class UniAD(UniADTrack):
         img_metas = img_metas[0]
         timestamp = timestamp[0] if timestamp is not None else None
 
+        if command is None and 'command' in img_metas[0]:
+            command = img_metas[0]['command']
+            if not isinstance(command, torch.Tensor):
+                val = command
+                if hasattr(val, 'item'): val = val.item()
+                command = torch.tensor([val]).long().to(img.device)
+            elif command.dim() == 0:
+                 command = command.unsqueeze(0)
+
         assert rescale is True, "rescale must be True because it's hard coded True in map head"
         result = [dict() for i in range(len(img_metas))]
         result_track, result_map = self.simple_test_track(img, l2g_t, l2g_r_mat, img_metas, timestamp, gt_lane_labels, gt_lane_masks)

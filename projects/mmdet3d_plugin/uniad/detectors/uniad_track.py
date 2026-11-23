@@ -159,6 +159,8 @@ class UniADTrack(MVXTwoStageDetector):
         """Extract features of images."""
         if img is None:
             return None
+        if img.dim() == 4:
+            img = img.unsqueeze(0)
         assert img.dim() == 5
         B, N, C, H, W = img.size()
         img = img.reshape(B * N, C, H, W)
