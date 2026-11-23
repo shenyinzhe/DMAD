@@ -68,4 +68,10 @@ RUN ln /usr/bin/python3 /usr/bin/python
 RUN pip install uvicorn fastapi
 RUN pip install numpy==1.21.2
 
+# mmcv-full pulls in opencv-python, which loads libGL. Under `apptainer --nv` (and
+# other GPU runtimes that mount the host graphics stack) the host libGLdispatch can
+# require a newer glibc than Ubuntu 20.04 provides (e.g. GLIBC_2.38), so `import cv2`
+# fails. The headless build has no GUI/libGL dependency.
+RUN pip uninstall -y opencv-python opencv-python-headless && pip install opencv-python-headless==4.12.0.88
+
 
