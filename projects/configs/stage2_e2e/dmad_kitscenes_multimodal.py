@@ -1,7 +1,8 @@
 # Zero-shot open-loop inference of DMAD stage 2 on KITScenes Multimodal:
 # images resampled into the virtual nuScenes cameras, causal ego state and the
 # 3 s driving command (see docs/KITSCENES.md and
-# projects/mmdet3d_plugin/datasets/kitscenes_multimodal_dataset.py). Model and test settings come from dmad_stage2.py.
+# projects/mmdet3d_plugin/datasets/kitscenes_multimodal_dataset.py).
+# Model and test settings come from dmad_stage2.py.
 _base_ = ['./dmad_stage2.py']
 
 ann_file = 'data/kitscenes/multimodal_e2e_dataset.json'  # override with --ann-file

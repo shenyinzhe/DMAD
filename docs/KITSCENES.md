@@ -4,6 +4,8 @@ Zero-shot open-loop inference of the nuScenes-trained DMAD checkpoint on the
 Multimodal split of KITScenes (483 E2E keyframes in `val` and
 `overlap_train_val`). The adapter maps the six KITScenes ring cameras, ego
 state and driving command onto the nuScenes conventions DMAD was trained with.
+UniAD runs with the same adapter after a one-step setup, see
+[section 5](#5-uniad).
 
 ## 1. Environment, checkpoint, motion anchors
 
@@ -85,3 +87,36 @@ python tools/kitscenes/visualize.py \
     --e2e-json data/kitscenes/multimodal_e2e_dataset.json \
     --out-dir work_dirs/dmad_kitscenes_multimodal_vis
 ```
+
+## 5. UniAD
+
+The same adapter and tools run the official UniAD checkpoint. Install them into
+an official UniAD v1 checkout (branch `main`; the default branch `v2.0` is a
+different code base). From the DMAD repository root:
+
+```shell
+git clone https://github.com/OpenDriveLab/UniAD.git
+git -C UniAD checkout main
+bash tools/kitscenes/setup_uniad.sh /path/to/UniAD
+```
+
+The script copies `kitscenes_multimodal_dataset.py`, the config
+`uniad_kitscenes_multimodal.py` and `tools/kitscenes/` into UniAD and applies
+`tools/kitscenes/uniad/uniad_kitscenes.patch` (dataset registration and
+test-time guards for inputs without GT). The environment is the same as for
+DMAD.
+
+Then, in the UniAD checkout, download
+[uniad_base_e2e.pth](https://github.com/OpenDriveLab/UniAD/releases/download/v1.0.1/uniad_base_e2e.pth)
+to `ckpts/`, place the
+[motion anchors](https://github.com/OpenDriveLab/UniAD/releases/download/v1.0/motion_anchor_infos_mode6.pkl)
+in `data/others/`, prepare the dataset JSON as in section 2, and run:
+
+```shell
+python tools/kitscenes/inference.py \
+    --config projects/configs/stage2_e2e/uniad_kitscenes_multimodal.py \
+    --checkpoint ckpts/uniad_base_e2e.pth \
+    --out-dir work_dirs/uniad_kitscenes_multimodal
+```
+
+Export and visualization work as in section 4.
